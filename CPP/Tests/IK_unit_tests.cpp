@@ -19,6 +19,7 @@ bool ik_test_SPHERICAL_1_2_I();
 bool ik_test_SPHERICAL_2_3_I();
 bool ik_test_PUMA();
 bool ik_test_SPHERICAL_2_3_P_REDUNDANT();
+bool ik_test_SPHERICAL_WRIST_SINGULARITY();
 
 bool test_inv_kin_chain();
 bool test_partial_joint_parametrization();
@@ -40,6 +41,7 @@ int main(int argc, char *argv[])
 	ik_test_SPHERICAL_2_3_I();
 	ik_test_PUMA();
 	ik_test_3P();
+	ik_test_SPHERICAL_WRIST_SINGULARITY();
 
 	// Redundancy test might create warning output on std::out
 	ik_test_SPHERICAL_2_3_P_REDUNDANT();
@@ -310,6 +312,48 @@ bool ik_test_SPHERICAL_2_3_P()
 	}
 
 	return evaluate_test<IKS::General_Robot>("IK spherical wrist - Axis 2||3", Irb6640, ee_poses);
+}
+
+// Spherical wrist at its singularity (q5 = 0, axes 4 and 6 aligned): q4 is arbitrary and q6 must compensate it.
+// The position only depends on q1 to q3, so every solution that reaches the position must also reach the orientation.
+bool ik_test_SPHERICAL_WRIST_SINGULARITY()
+{
+	Eigen::Matrix<double, 3, 6> Irb6640_H;
+	Irb6640_H << ez, ey, ey, ex, ey, ex;
+	Eigen::Matrix<double, 3, 7> Irb6640_P;
+	Irb6640_P << zv, 0.32 * ex + 0.78 * ez, 1.075 * ez, 1.1425 * ex + 0.2 * ez, zv, zv, 0.2 * ex;
+
+	IKS::General_6R Irb6640(Irb6640_H, Irb6640_P);
+
+	bool is_passed = true;
+	for (unsigned i = 0; i < BATCH_SIZE; ++i)
+	{
+		const IKS::Homogeneous_T pose = Irb6640.fwdkin({rand_angle(), rand_angle(), rand_angle(), rand_angle(), 0.0, rand_angle()});
+		const IKS::IK_Solution solution = Irb6640.calculate_IK(pose);
+
+		for (const auto &q : solution.Q)
+		{
+			const IKS::Homogeneous_T result = Irb6640.fwdkin(q);
+			const double position_error = (result.block<3, 1>(0, 3) - pose.block<3, 1>(0, 3)).norm();
+			const double orientation_error = (result.block<3, 3>(0, 0) - pose.block<3, 3>(0, 0)).norm();
+			if (position_error < ERROR_PASS_EPSILON && orientation_error > ERROR_PASS_EPSILON)
+			{
+				is_passed = false;
+			}
+		}
+	}
+
+	std::cout << "\n===== Test [IK spherical wrist - Wrist singularity]: ";
+	if (is_passed)
+	{
+		std::cout << "[PASS] =====" << std::endl;
+	}
+	else
+	{
+		std::cout << "[FAIL] =====" << std::endl;
+	}
+
+	return is_passed;
 }
 
 bool ik_test_SPHERICAL()
