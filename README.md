@@ -88,12 +88,19 @@ Make sure to clone this repository with all external dependencies using:
 ```
 $ git clone --recurse-submodules git@github.com:OstermD/EAIK.git
 ```
-Then build the EAIK C++ library by using:
+The C++ library needs Eigen 3.3 or newer installed on your system (e.g., `sudo apt install libeigen3-dev` on Ubuntu).
+Then build and install the EAIK C++ library by using:
 
 ```
 $ mkdir EAIK/CPP/src/build && cd EAIK/CPP/src/build
 $ cmake ..
 $ make
+$ sudo make install
+```
+To use the installed library in your own CMake project:
+```cmake
+find_package(EAIK REQUIRED)
+target_link_libraries(your_target EAIK::EAIK)
 ```
 
 ### Windows
