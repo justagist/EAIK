@@ -20,6 +20,7 @@ bool ik_test_SPHERICAL_2_3_I();
 bool ik_test_PUMA();
 bool ik_test_SPHERICAL_2_3_P_REDUNDANT();
 bool ik_test_SPHERICAL_WRIST_SINGULARITY();
+bool ik_test_3P_OPPOSITE_AXES();
 
 bool test_inv_kin_chain();
 bool test_partial_joint_parametrization();
@@ -42,6 +43,7 @@ int main(int argc, char *argv[])
 	ik_test_PUMA();
 	ik_test_3P();
 	ik_test_SPHERICAL_WRIST_SINGULARITY();
+	ik_test_3P_OPPOSITE_AXES();
 
 	// Redundancy test might create warning output on std::out
 	ik_test_SPHERICAL_2_3_P_REDUNDANT();
@@ -344,6 +346,50 @@ bool ik_test_SPHERICAL_WRIST_SINGULARITY()
 	}
 
 	std::cout << "\n===== Test [IK spherical wrist - Wrist singularity]: ";
+	if (is_passed)
+	{
+		std::cout << "[PASS] =====" << std::endl;
+	}
+	else
+	{
+		std::cout << "[FAIL] =====" << std::endl;
+	}
+
+	return is_passed;
+}
+
+// Axis 2, 3, 4 parallel as in ik_test_3P, but axis 3 points the opposite way. A turn about -h is the same as the
+// opposite turn about h, so the arm is the same, and every pose must have an exact solution.
+bool ik_test_3P_OPPOSITE_AXES()
+{
+	Eigen::Matrix<double, 3, 6> three_parallel_H;
+	three_parallel_H << ez, ex, -ex, ex, ez, ex;
+	Eigen::Matrix<double, 3, 7> three_parallel_P;
+	three_parallel_P << ez, ey, ey, ey, ey, ey + ex, ex;
+
+	EAIK::Robot three_parallel(three_parallel_H, three_parallel_P);
+
+	bool is_passed = true;
+	for (unsigned i = 0; i < BATCH_SIZE; ++i)
+	{
+		const IKS::Homogeneous_T pose = three_parallel.fwdkin({rand_angle(), rand_angle(), rand_angle(), rand_angle(), rand_angle(), rand_angle()});
+		const IKS::IK_Solution solution = three_parallel.calculate_IK(pose);
+
+		bool is_reached = false;
+		for (const auto &q : solution.Q)
+		{
+			if ((three_parallel.fwdkin(q) - pose).norm() < ERROR_PASS_EPSILON)
+			{
+				is_reached = true;
+			}
+		}
+		if (!is_reached)
+		{
+			is_passed = false;
+		}
+	}
+
+	std::cout << "\n===== Test [IK three parallel - 2,3,4 with opposite axes]: ";
 	if (is_passed)
 	{
 		std::cout << "[PASS] =====" << std::endl;

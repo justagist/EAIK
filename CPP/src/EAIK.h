@@ -50,6 +50,7 @@ namespace EAIK
         Eigen::Matrix<double, 3, 3> R6T;
         Eigen::Matrix<double, 3, 3> R6T_partial;
         std::vector<std::pair<int, double>> fixed_axes; // Locked axes sorted by rising indices (!)
+        std::vector<bool> is_axis_flipped; // Axes of the solved (non-fixed) joints that point opposite to the given axis
 
         const std::string decomposition_unknown_exception_info{"No Subproblem-Decomposition for the given manipulator is currently known! Analytical IK computation is not possible."};
 

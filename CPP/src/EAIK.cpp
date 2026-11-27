@@ -5,6 +5,7 @@
 
 #include "kinematic_remodeling.h"
 #include "kinematic_utils.h"
+#include "sp.h"
 #include "EAIK.h"
 
 namespace EAIK
@@ -53,6 +54,27 @@ namespace EAIK
             P_remodeled = remodel_kinematics(H, P, ZERO_THRESHOLD, AXIS_INTERSECT_THRESHOLD);
             H_remodeled = H;
             this->R6T_partial = R6T;
+        }
+
+        // The solvers treat parallel axes as one axis, so parallel axes must point the same way. An axis that points
+        // the opposite way is flipped, and its joint value changes sign in calculate_IK().
+        this->is_axis_flipped = std::vector<bool>(H_remodeled.cols(), false);
+        for(Eigen::Index i = 1; i < H_remodeled.cols(); ++i)
+        {
+            for(Eigen::Index j = 0; j < i; ++j)
+            {
+                const Eigen::Vector3d h_i = H_remodeled.col(i);
+                const Eigen::Vector3d h_j = H_remodeled.col(j);
+                if(h_i.cross(h_j).norm() < ZERO_THRESH)
+                {
+                    if(h_i.dot(h_j) < 0)
+                    {
+                        H_remodeled.col(i) = -H_remodeled.col(i);
+                        this->is_axis_flipped.at(i) = true;
+                    }
+                    break;
+                }
+            }
         }
         switch (H_remodeled.cols())
         {
@@ -122,6 +144,17 @@ namespace EAIK
         IKS::Homogeneous_T ee_06_rot = ee_position_orientation;
         ee_06_rot.block<3,3>(0,0) *= R6T_partial.transpose();
         IKS::IK_Solution solution = bot_kinematics->calculate_IK(ee_06_rot);
+
+        for(auto& Qs : solution.Q)
+        {
+            for(unsigned i = 0; i < Qs.size(); ++i)
+            {
+                if(is_axis_flipped.at(i))
+                {
+                    Qs.at(i) = -Qs.at(i);
+                }
+            }
+        }
 
         // TODO: Find alternative to this costly insert operation
         for(const auto&[joint_index, value] : fixed_axes)
